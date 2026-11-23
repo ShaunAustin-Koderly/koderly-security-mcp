@@ -1,5 +1,9 @@
+import asyncio
 import unittest
 from unittest.mock import patch
+
+from azure.core.exceptions import ClientAuthenticationError, HttpResponseError
+from mcp.server.mcpserver.exceptions import ToolError, UnexpectedToolError
 
 from koderly_security_mcp import server as server_mod
 
@@ -118,6 +122,52 @@ class StorageAccessFeatureTests(unittest.TestCase):
     def test_build_storage_access_query_clamps_result_limit(self):
         query = server_mod.build_storage_access_query("examplestorage01", hours=24, limit=999999)
         self.assertIn(f"take {server_mod.STORAGE_MAX_RESULT_LIMIT}", query.lower())
+
+
+class ErrorReportingTests(unittest.TestCase):
+    """Failures must reach the MCP client with their message, not as a generic crash."""
+
+    ENV = {"AZURE_LOG_ANALYTICS_WORKSPACE_ID": "test-workspace-id", "AZURE_TENANT_ID": "test-tenant-id"}
+
+    def _call_tool_error(self, name, arguments):
+        with self.assertRaises(ToolError) as raised:
+            asyncio.run(server_mod.mcp.call_tool(name, arguments))
+        self.assertNotIsInstance(raised.exception, UnexpectedToolError)
+        return str(raised.exception)
+
+    def test_tool_input_error_is_still_a_value_error(self):
+        self.assertTrue(issubclass(server_mod.ToolInputError, ValueError))
+
+    def test_missing_workspace_id_is_reported_to_client(self):
+        with patch.dict(server_mod.os.environ, {}, clear=True):
+            message = self._call_tool_error("get_recent_signins", {"hours": 1, "limit": 1})
+        self.assertIn("AZURE_LOG_ANALYTICS_WORKSPACE_ID is not set", message)
+
+    def test_invalid_argument_is_reported_to_client(self):
+        with patch.dict(server_mod.os.environ, self.ENV, clear=True):
+            message = self._call_tool_error("get_storage_account_access", {"account_name": "Not-Valid!"})
+        self.assertIn("valid Azure Storage account name", message)
+
+    def test_azure_sign_in_failure_is_reported_to_client(self):
+        with patch.dict(server_mod.os.environ, self.ENV, clear=True),                 patch.object(server_mod, "AzureCliCredential"),                 patch.object(server_mod, "LogsQueryClient") as client:
+            client.return_value.query_workspace.side_effect = ClientAuthenticationError("token expired")
+            message = self._call_tool_error("get_all_recent_signins", {"hours": 1})
+        self.assertIn("az login", message)
+        self.assertIn("token expired", message)
+
+    def test_query_failure_is_reported_to_client(self):
+        with patch.dict(server_mod.os.environ, self.ENV, clear=True),                 patch.object(server_mod, "AzureCliCredential"),                 patch.object(server_mod, "LogsQueryClient") as client:
+            client.return_value.query_workspace.side_effect = HttpResponseError("Forbidden")
+            message = self._call_tool_error("get_recent_signins", {"hours": 1, "limit": 1})
+        self.assertIn("Log Analytics Reader", message)
+        self.assertIn("Forbidden", message)
+
+    def test_successful_query_returns_rows(self):
+        result = FakeResult([FakeTable(["UserPrincipalName"], [["alice@example.com"]])])
+        with patch.dict(server_mod.os.environ, self.ENV, clear=True),                 patch.object(server_mod, "AzureCliCredential"),                 patch.object(server_mod, "LogsQueryClient") as client:
+            client.return_value.query_workspace.return_value = result
+            rows = server_mod.get_recent_signins(hours=1, limit=1)
+        self.assertEqual(rows, [{"UserPrincipalName": "alice@example.com"}])
 
 
 if __name__ == "__main__":
