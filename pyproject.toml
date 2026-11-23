@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "koderly-security-mcp"
+version = "0.1.0"
+description = "MCP server for read-only security review of Microsoft Entra sign-ins, Azure storage access, and Exchange Online quarantine"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Koderly" }]
+requires-python = ">=3.12"
+keywords = ["mcp", "model-context-protocol", "azure", "entra", "security", "exchange-online"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+    "Topic :: Security",
+    "Topic :: System :: Systems Administration",
+]
+dependencies = [
+    "mcp>=2.2,<3",
+    "azure-identity>=1.25,<2",
+    "azure-monitor-query>=2,<3",
+]
+
+[project.scripts]
+koderly-security-mcp = "koderly_security_mcp.server:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
