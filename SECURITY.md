@@ -19,7 +19,7 @@ We aim to acknowledge reports within five working days.
 This server is intended to be **read-only**. We are particularly interested in reports of:
 
 - any path by which a tool can modify tenant state
-- query or script injection into the KQL queries or the PowerShell script the server builds
+- query injection into the KQL queries the server builds
 - credential, token, or certificate exposure
 - tools returning more data than their documented bounds
 

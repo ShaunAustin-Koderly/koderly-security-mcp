@@ -5,7 +5,7 @@ Thanks for your interest in improving koderly-security-mcp.
 ## Ground rules
 
 - **Tools must be read-only.** New tools should gather evidence for review. They must never change tenant or resource state.
-- **Bound every query.** Validate and cap inputs such as lookback windows, row limits, and names before interpolating them into KQL or PowerShell, following the existing `build_*` helpers.
+- **Bound every query.** Validate and cap inputs such as lookback windows, row limits, and names before interpolating them into KQL, following the existing `build_*` helpers.
 - **No environment-specific values in code.** Tenant, subscription, workspace, and resource names come from environment variables. Document any new variable in `README.md`.
 - **Least privilege.** Document the minimum role each new tool needs.
 
@@ -18,7 +18,7 @@ python -m pip install -e .
 python -m unittest discover -s tests -v
 ```
 
-Tests must not call Azure or Exchange Online. Mock the SDK clients and `subprocess.run`, as the existing tests do.
+Tests must not call Azure. Mock the SDK clients, as the existing tests do.
 
 ## Pull requests
 
